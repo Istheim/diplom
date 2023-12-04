@@ -1,39 +1,51 @@
 import random
 import string
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import PermissionsMixin
+from django.contrib.auth.base_user import AbstractBaseUser
+from django.utils.translation import gettext_lazy as _
+
+from users.managers import UserManager
 
 NULLABLE = {'blank': True, 'null': True}
 
 
-class User(AbstractUser):
-    username = models.CharField(max_length=30, verbose_name='Имя пользователя', unique=True)
-    password = models.CharField(max_length=128, verbose_name='Пароль')
-    number_phone = models.CharField(max_length=12, verbose_name='Номер телефона', unique=True)
-    invitation_code = models.CharField(max_length=6, null=True, default=None)
-    is_invitation_code_used = models.BooleanField(default=False)
-    else_invitation_code = models.ForeignKey('self', on_delete=models.DO_NOTHING, null=True, default=None)
-    activated_else_invitation_code = models.CharField(max_length=6, null=True, default=None)
+class User(AbstractBaseUser, PermissionsMixin):
+    username = models.CharField(_('username'), max_length=255, unique=True)
+    email = models.EmailField(_('email address'), null=True, blank=True)
+    phone = models.CharField(_('phone number'), max_length=12, **NULLABLE)
+    date_joined = models.DateTimeField(_('date joined'), auto_now_add=True)
+    is_active = models.BooleanField(_('active'), default=False)
+    is_staff = models.BooleanField(_('staff'), default=False)
 
-    # Создание 6-ти значного ивайт-кода и сохранение его в бд
-    def save(self, *args, **kwargs):
-        if not self.invitation_code:
-            all_symbols = list(string.ascii_lowercase + string.digits)
-            code_items = []
+    is_verified = models.BooleanField(_('verified'), default=False)
 
-            for i in range(6):
-                cod = random.choice(all_symbols)
-                code_items.append(cod)
+    objects = UserManager()
 
-            result = ''.join(str(item) for item in code_items)
-            self.invitation_code = result
-        super().save(*args, **kwargs)
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['email']
 
     class Meta:
-        verbose_name = 'Пользователь'
-        verbose_name_plural = 'Пользователи'
+        verbose_name = _('user')
+        verbose_name_plural = _('users')
+        unique_together = ('username', 'phone')
 
 
+#    # Создание 6-ти значного ивайт-кода и сохранение его в бд
+#    def save(self, *args, **kwargs):
+#        if not self.invitation_code:
+#            all_symbols = list(string.ascii_lowercase + string.digits)
+#            code_items = []
+#
+#            for i in range(6):
+#                cod = random.choice(all_symbols)
+#                code_items.append(cod)
+#
+#            result = ''.join(str(item) for item in code_items)
+#            self.invitation_code = result
+#        super().save(*args, **kwargs)
+#
+#
 class Code(models.Model):
     code = models.CharField(max_length=4, blank=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
