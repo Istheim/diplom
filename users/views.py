@@ -1,37 +1,31 @@
 from rest_framework import generics
 from users.models import User, Code
-from users.serliazers import UserSerializer, CodeSerializer
+from users.serliazers import CodeSerializer, LoginSerializer
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.generics import RetrieveUpdateAPIView
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from .serliazers import ProfileSerializer
+from rest_framework.views import APIView
 
 
-# generics для модели User
-class UserCreateAPIView(generics.CreateAPIView):
-    serializer_class = UserSerializer
+class LoginView(APIView):
+    """
+    Авторизация по номеру телефона.
+    """
 
-
-class UserListAPIView(generics.ListAPIView):
-    serializer_class = UserSerializer
-    queryset = User.objects.all()
-
-
-class UserRetrieveAPIView(generics.RetrieveAPIView):
-    serializer_class = UserSerializer
-    queryset = User.objects.all()
-
-
-class UserUpdateApiView(generics.UpdateAPIView):
-    serializer_class = UserSerializer
-    queryset = User.objects.all()
-
-
-class UserDestroyAPIView(generics.DestroyAPIView):
-    queryset = User.objects.all()
+    def post(self, request, *args, **kwargs):
+        serializer = LoginSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response({'user_id': user.id}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # generics для модели Code
 class AuthenticationCodeAPIView(generics.CreateAPIView):
     serializer_class = CodeSerializer
+    permission_classes = [AllowAny, ]
 
     def create(self, request, *args, **kwargs):
         number_phone = request.data.get('number_phone')
@@ -44,3 +38,17 @@ class AuthenticationCodeAPIView(generics.CreateAPIView):
         serializer = self.get_serializer(user_code)
         return Response({'code': serializer.data['code']})
 
+
+class ProfileView(RetrieveUpdateAPIView):
+    """
+    Представление для профиля пользователя.
+    """
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        # Переопределение метода update для правильной обработки PUT-запроса
+        return super().update(request, *args, **kwargs)
